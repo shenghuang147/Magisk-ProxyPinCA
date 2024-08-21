@@ -4,7 +4,7 @@
 exec > /data/local/tmp/ProxyPinCA.log
 exec 2>&1
 
-#set -x
+set -x
 
 MODDIR=${0%/*}
 
@@ -65,6 +65,22 @@ if [ -d /apex/com.android.conscrypt/cacerts ]; then
     rmdir "$TEMP_DIR"
 else
     echo "[$(date +%F) $(date +%T)] - Android version lower than 14 detected"
-    set_context /system/etc/security/cacerts ${MODDIR}/system/etc/security/cacerts 
+    TEMP_DIR="/data/local/tmp/cacerts-copy"
+    SYSTEM_CACERTS_DIR="/system/etc/security/cacerts"
+    IMPORT_CA_DIR=${MODDIR}/system/etc/security/cacerts
+
+    mkdir -p -m 700 $TEMP_DIR
+    cp $SYSTEM_CACERTS_DIR/* $TEMP_DIR
+    cp $IMPORT_CA_DIR/* $TEMP_DIR/
+    set_context $SYSTEM_CACERTS_DIR "$TEMP_DIR"
+    mount -t tmpfs tmpfs $SYSTEM_CACERTS_DIR
+    chown -R 0:0 $TEMP_DIR
+    chmod -R 644 $TEMP_DIR
+    mv $TEMP_DIR/* $SYSTEM_CACERTS_DIR/
     echo "[$(date +%F) $(date +%T)] - Mount success!"
+fi
+
+if [ $(id -u) -ne 0 ]; then
+    echo "This script must be run as root" 1>&2
+    exit 1
 fi
